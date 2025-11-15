@@ -1,134 +1,69 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertLeadSchema, updateLeadSchema, insertMeetingSchema } from "@shared/schema";
+import { insertLeadSchema, updateLeadSchema, insertMeetingSchema } from "../shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Leads endpoints
+
+  // Leads
   app.get("/api/leads", async (req, res) => {
-    try {
-      const leads = await storage.getLeads();
-      res.json(leads);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch leads" });
-    }
+    res.json(await storage.getLeads());
   });
 
   app.get("/api/leads/:id", async (req, res) => {
-    try {
-      const lead = await storage.getLead(req.params.id);
-      if (!lead) {
-        return res.status(404).json({ error: "Lead not found" });
-      }
-      res.json(lead);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch lead" });
-    }
+    const lead = await storage.getLead(req.params.id);
+    if (!lead) return res.status(404).json({ error: "Lead not found" });
+    res.json(lead);
   });
 
   app.post("/api/leads", async (req, res) => {
-    try {
-      const validatedData = insertLeadSchema.parse(req.body);
-      const lead = await storage.createLead(validatedData);
-      res.status(201).json(lead);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid lead data" });
-    }
+    const data = insertLeadSchema.parse(req.body);
+    const lead = await storage.createLead(data);
+    res.status(201).json(lead);
   });
 
   app.patch("/api/leads/:id", async (req, res) => {
-    try {
-      const validatedData = updateLeadSchema.parse(req.body);
-      const lead = await storage.updateLead(req.params.id, validatedData);
-      if (!lead) {
-        return res.status(404).json({ error: "Lead not found" });
-      }
-      res.json(lead);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid lead data" });
-    }
+    const data = updateLeadSchema.parse(req.body);
+    const lead = await storage.updateLead(req.params.id, data);
+    if (!lead) return res.status(404).json({ error: "Lead not found" });
+    res.json(lead);
   });
 
   app.delete("/api/leads/:id", async (req, res) => {
-    try {
-      const success = await storage.deleteLead(req.params.id);
-      if (!success) {
-        return res.status(404).json({ error: "Lead not found" });
-      }
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete lead" });
-    }
+    await storage.deleteLead(req.params.id);
+    res.status(204).send();
   });
 
-  // Meetings endpoints
+  // Meetings
   app.get("/api/meetings", async (req, res) => {
-    try {
-      const meetings = await storage.getMeetings();
-      res.json(meetings);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch meetings" });
-    }
+    res.json(await storage.getMeetings());
   });
 
   app.get("/api/meetings/:id", async (req, res) => {
-    try {
-      const meeting = await storage.getMeeting(req.params.id);
-      if (!meeting) {
-        return res.status(404).json({ error: "Meeting not found" });
-      }
-      res.json(meeting);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch meeting" });
-    }
+    const meeting = await storage.getMeeting(req.params.id);
+    if (!meeting) return res.status(404).json({ error: "Meeting not found" });
+    res.json(meeting);
   });
 
   app.post("/api/meetings", async (req, res) => {
-    try {
-      const validatedData = insertMeetingSchema.parse(req.body);
-      const meeting = await storage.createMeeting(validatedData);
-      res.status(201).json(meeting);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid meeting data" });
-    }
+    const data = insertMeetingSchema.parse(req.body);
+    const meeting = await storage.createMeeting(data);
+    res.status(201).json(meeting);
   });
 
   app.patch("/api/meetings/:id/status", async (req, res) => {
-    try {
-      const { status } = req.body;
-      if (!status) {
-        return res.status(400).json({ error: "Status is required" });
-      }
-      const meeting = await storage.updateMeetingStatus(req.params.id, status);
-      if (!meeting) {
-        return res.status(404).json({ error: "Meeting not found" });
-      }
-      res.json(meeting);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to update meeting status" });
-    }
+    const meeting = await storage.updateMeetingStatus(req.params.id, req.body.status);
+    res.json(meeting);
   });
 
   app.delete("/api/meetings/:id", async (req, res) => {
-    try {
-      const success = await storage.deleteMeeting(req.params.id);
-      if (!success) {
-        return res.status(404).json({ error: "Meeting not found" });
-      }
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete meeting" });
-    }
+    await storage.deleteMeeting(req.params.id);
+    res.status(204).send();
   });
 
-  // Dashboard stats endpoint
+  // Stats
   app.get("/api/stats", async (req, res) => {
-    try {
-      const stats = await storage.getDashboardStats();
-      res.json(stats);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch statistics" });
-    }
+    res.json(await storage.getDashboardStats());
   });
 
   const httpServer = createServer(app);
