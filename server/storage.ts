@@ -1,8 +1,19 @@
 import fs from "fs/promises";
 import path from "path";
+import { fileURLToPath } from "url";
 
-const DATA_PATH = path.join(process.cwd(), "data.json");
+// -----------------------------------------------------------------------------
+// FIX: Make data.json path work on Render & after esbuild bundling
+// -----------------------------------------------------------------------------
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
+// data.json MUST be inside the SAME folder as storage.ts (server/)
+const DATA_PATH = path.join(__dirname, "data.json");
+
+// -----------------------------------------------------------------------------
+// Types
+// -----------------------------------------------------------------------------
 interface Lead {
   id: string;
   name: string;
@@ -21,15 +32,33 @@ interface Meeting {
   notes?: string;
 }
 
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
 async function readData() {
-  const raw = await fs.readFile(DATA_PATH, "utf8");
-  return JSON.parse(raw);
+  try {
+    const raw = await fs.readFile(DATA_PATH, "utf8");
+    return JSON.parse(raw);
+  } catch (err: any) {
+
+    // If file missing → create new default database
+    if (err.code === "ENOENT") {
+      const initial = { leads: [], meetings: [] };
+      await writeData(initial);
+      return initial;
+    }
+
+    throw err;
+  }
 }
 
 async function writeData(data: any) {
   await fs.writeFile(DATA_PATH, JSON.stringify(data, null, 2));
 }
 
+// -----------------------------------------------------------------------------
+// Storage API
+// -----------------------------------------------------------------------------
 export const storage = {
   async getLeads() {
     const data = await readData();
