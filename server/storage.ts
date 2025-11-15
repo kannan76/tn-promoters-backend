@@ -1,45 +1,120 @@
-import { db } from "./db";
-import { leads, meetings } from "./schema";
-import { eq } from "drizzle-orm";
+import fs from "fs/promises";
+import path from "path";
+
+const DATA_PATH = path.join(process.cwd(), "data.json");
+
+interface Lead {
+  id: string;
+  name: string;
+  phone: string;
+  source?: string;
+  status?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+interface Meeting {
+  id: string;
+  leadId: string;
+  date: string;
+  status: string;
+  notes?: string;
+}
+
+async function readData() {
+  const raw = await fs.readFile(DATA_PATH, "utf8");
+  return JSON.parse(raw);
+}
+
+async function writeData(data: any) {
+  await fs.writeFile(DATA_PATH, JSON.stringify(data, null, 2));
+}
 
 export const storage = {
-  // Leads
-  getLeads: () => db.select().from(leads),
+  async getLeads() {
+    const data = await readData();
+    return data.leads;
+  },
 
-  getLead: (id: string) =>
-    db.select().from(leads).where(eq(leads.id, Number(id))).then(r => r[0]),
+  async getLead(id: string) {
+    const data = await readData();
+    return data.leads.find((l: Lead) => l.id === id);
+  },
 
-  createLead: (data: any) =>
-    db.insert(leads).values(data).returning(),
+  async createLead(lead: any) {
+    const data = await readData();
+    const newLead = {
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString(),
+      ...lead,
+    };
+    data.leads.push(newLead);
+    await writeData(data);
+    return newLead;
+  },
 
-  updateLead: (id: string, data: any) =>
-    db.update(leads).set(data).where(eq(leads.id, Number(id))).returning().then(r => r[0]),
+  async updateLead(id: string, updates: any) {
+    const data = await readData();
+    const index = data.leads.findIndex((l: Lead) => l.id === id);
+    if (index === -1) return null;
 
-  deleteLead: (id: string) =>
-    db.delete(leads).where(eq(leads.id, Number(id))).then(() => true),
+    data.leads[index] = { ...data.leads[index], ...updates };
+    await writeData(data);
+    return data.leads[index];
+  },
 
-  // Meetings
-  getMeetings: () => db.select().from(meetings),
+  async deleteLead(id: string) {
+    const data = await readData();
+    const before = data.leads.length;
+    data.leads = data.leads.filter((l: Lead) => l.id !== id);
+    await writeData(data);
+    return data.leads.length < before;
+  },
 
-  getMeeting: (id: string) =>
-    db.select().from(meetings).where(eq(meetings.id, Number(id))).then(r => r[0]),
+  async getMeetings() {
+    const data = await readData();
+    return data.meetings;
+  },
 
-  createMeeting: (data: any) =>
-    db.insert(meetings).values(data).returning(),
+  async getMeeting(id: string) {
+    const data = await readData();
+    return data.meetings.find((m: Meeting) => m.id === id);
+  },
 
-  updateMeetingStatus: (id: string, status: string) =>
-    db.update(meetings).set({ status }).where(eq(meetings.id, Number(id))).returning().then(r => r[0]),
+  async createMeeting(meeting: any) {
+    const data = await readData();
+    const newMeeting = {
+      id: Date.now().toString(),
+      ...meeting,
+    };
+    data.meetings.push(newMeeting);
+    await writeData(data);
+    return newMeeting;
+  },
 
-  deleteMeeting: (id: string) =>
-    db.delete(meetings).where(eq(meetings.id, Number(id))).then(() => true),
+  async updateMeetingStatus(id: string, status: string) {
+    const data = await readData();
+    const index = data.meetings.findIndex((m: Meeting) => m.id === id);
+    if (index === -1) return null;
 
-  // Dashboard stats
-  getDashboardStats: async () => {
-    const totalLeads = (await db.select().from(leads)).length;
-    const totalMeetings = (await db.select().from(meetings)).length;
+    data.meetings[index].status = status;
+    await writeData(data);
+    return data.meetings[index];
+  },
+
+  async deleteMeeting(id: string) {
+    const data = await readData();
+    const before = data.meetings.length;
+    data.meetings = data.meetings.filter((m: Meeting) => m.id !== id);
+    await writeData(data);
+    return data.meetings.length < before;
+  },
+
+  async getStats() {
+    const data = await readData();
     return {
-      totalLeads,
-      totalMeetings
+      totalLeads: data.leads.length,
+      totalMeetings: data.meetings.length,
     };
   }
 };
